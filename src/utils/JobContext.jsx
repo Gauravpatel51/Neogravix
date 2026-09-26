@@ -154,14 +154,14 @@ export function JobProvider({ children }) {
                           failedPages: job.metadata?.failedPages || updated[job.id]?.failedPages
                       };
                   } else if (job.status === 'failed') {
-                      if (updated[job.id] && updated[job.id].status !== 'failed') {
+                      if (!updated[job.id] || updated[job.id].status !== 'failed') {
                           updated[job.id] = {
                               status: 'failed',
                               error: job.error_message || 'Extraction failed'
                           };
                       }
                   } else if (job.status === 'completed') {
-                      if (updated[job.id] && updated[job.id].status !== 'completed') {
+                      if (!updated[job.id] || updated[job.id].status !== 'completed') {
                           updated[job.id] = {
                               ...updated[job.id],
                               status: 'completed',
