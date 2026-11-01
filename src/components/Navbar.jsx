@@ -1,5 +1,5 @@
 import React from 'react'
-import { BookOpen, LayoutDashboard, Bookmark, User, Settings, FlaskConical, HelpCircle, Library, Database } from 'lucide-react'
+import { BookOpen, LayoutDashboard, Bookmark, User, Settings, FlaskConical, HelpCircle, Library, Database, LifeBuoy } from 'lucide-react'
 import logoImg from '../assets/logo.jpg'
 import { useAuth } from '../utils/useAuth.jsx'
 
@@ -8,6 +8,7 @@ export default function Navbar({ page, setPage }) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'upload', label: 'New Test', icon: BookOpen },
+    { id: 'rescue', label: 'Rescue', icon: LifeBuoy },
     { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
     { id: 'library', label: 'Library', icon: Library },
     { id: 'profile', label: 'Profile', icon: User },
@@ -72,7 +73,7 @@ export default function Navbar({ page, setPage }) {
         background: 'var(--bg)', borderTop: '1px solid var(--border)',
         padding: '8px 0', zIndex: 100,
       }} className="mobile-nav">
-        {navItems.slice(0, 4).map(({ id, label, icon: Icon }) => (
+        {navItems.slice(0, 5).map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setPage(id)} style={{
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
             gap: 3, padding: '6px 4px', border: 'none', background: 'transparent',
