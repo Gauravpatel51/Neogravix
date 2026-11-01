@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   loadBacklog,
   toggleBacklogItem,
@@ -6,7 +6,6 @@ import {
   addLectureItem,
   addOtherItem,
   bulkAddLectureItems,
-  resetBacklog,
   clearBacklog
 } from '../utils/rescueStorage';
 import { planRescue, calculateBacklogStats } from '../utils/rescuePlanner';
@@ -15,11 +14,10 @@ import {
   Plus,
   Trash2,
   Check,
-  Clock,
-  Sparkles,
+  Calendar,
   AlertCircle,
   X,
-  RotateCcw
+  Sparkles
 } from 'lucide-react';
 
 export default function BacklogRescuePage() {
@@ -30,12 +28,12 @@ export default function BacklogRescuePage() {
   const [planResult, setPlanResult] = useState(null);
   const [statusMsg, setStatusMsg] = useState('Ready to rescue your backlog.');
 
-  // Modals state
+  // Modal dialog states
   const [showLectureModal, setShowLectureModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [showOtherModal, setShowOtherModal] = useState(false);
 
-  // Form states
+  // Form input states
   const [lecName, setLecName] = useState('');
   const [lecSubject, setLecSubject] = useState('Physics');
   const [lecMin, setLecMin] = useState(60);
@@ -62,15 +60,8 @@ export default function BacklogRescuePage() {
     setItems(updated);
   };
 
-  const handleResetDemo = () => {
-    const updated = resetBacklog();
-    setItems(updated);
-    setPlanResult(null);
-    setStatusMsg('Demo backlog loaded.');
-  };
-
   const handleClear = () => {
-    if (window.confirm('Clear the whole backlog?')) {
+    if (window.confirm('Clear all items from your backlog?')) {
       const updated = clearBacklog();
       setItems(updated);
       setPlanResult(null);
@@ -133,7 +124,7 @@ export default function BacklogRescuePage() {
         keepRegularStudy
       });
       setPlanResult(result);
-      if (result.remaining.length > 0) {
+      if (result.remaining && result.remaining.length > 0) {
         setStatusMsg('Partial rescue plan — more days needed');
       } else {
         setStatusMsg('Rescue plan created successfully');
@@ -145,29 +136,7 @@ export default function BacklogRescuePage() {
 
   return (
     <div style={{ maxWidth: 1080, margin: '0 auto', padding: '16px 14px 70px' }}>
-      {/* Header bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 8,
-            background: 'linear-gradient(135deg, #a15eff, #5420a0)',
-            display: 'grid', placeItems: 'center', color: '#fff'
-          }}>
-            <LifeBuoy size={18} />
-          </div>
-          <span style={{ fontWeight: 800, letterSpacing: '0.5px', fontSize: 16, color: 'var(--text, #f8f4ff)' }}>
-            NEOGRAVIX
-          </span>
-        </div>
-        <div style={{
-          fontSize: 11, border: '1px solid #33263e', color: '#bdb1c9',
-          padding: '6px 12px', borderRadius: 99, background: '#130c20'
-        }}>
-          Backlog Rescue • AI Assistant
-        </div>
-      </div>
-
-      {/* Hero section */}
+      {/* Top Hero Section */}
       <section style={{
         border: '1px solid #352243',
         borderRadius: 22,
@@ -186,14 +155,14 @@ export default function BacklogRescuePage() {
           fontSize: 28, fontWeight: 800, margin: '4px 0 10px',
           color: '#ffffff', display: 'flex', alignItems: 'center', gap: 10
         }}>
-          <span>🆘</span> Backlog Rescue
+          <LifeBuoy size={28} color="#a15eff" /> Backlog Rescue
         </h1>
         <p style={{ color: '#a59bb0', fontSize: 13, lineHeight: 1.6, maxWidth: 800, margin: 0 }}>
-          Add lectures and other pending work. Then tell NeoGravix how much time you have.
-          The planner respects lecture order, daily capacity and carry-forward instead of creating an impossible schedule.
+          Add lectures and other pending work. Then specify your available study hours.
+          The rescue planner respects lecture order, daily capacity limits, and carry-forward to build an achievable schedule.
         </p>
 
-        {/* Stats cards */}
+        {/* Metric stats */}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
           <div style={{
             padding: '10px 14px', background: '#170e21',
@@ -255,13 +224,13 @@ export default function BacklogRescuePage() {
         </button>
       </div>
 
-      {/* Main 2-column layout */}
+      {/* 2-Column layout */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
         gap: 16
       }}>
-        {/* Left Panel: Backlog items */}
+        {/* Left Column: Backlog Items List */}
         <section style={{
           border: '1px solid #2d2337',
           background: '#0f0917',
@@ -270,42 +239,35 @@ export default function BacklogRescuePage() {
           display: 'flex',
           flexDirection: 'column'
         }}>
-          <h2 style={{ fontSize: 16, margin: '0 0 4px', color: '#f8f4ff' }}>Your backlog</h2>
-          <div style={{ color: '#8d8196', fontSize: 12, lineHeight: 1.5 }}>
-            This is the data Rescue reads. Lecture numbers are ordered so Lecture 6 cannot be scheduled before Lecture 5.
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+            <div>
+              <h2 style={{ fontSize: 16, margin: 0, color: '#f8f4ff' }}>Your backlog</h2>
+              <div style={{ color: '#8d8196', fontSize: 12, lineHeight: 1.5, marginTop: 4 }}>
+                Enforces lecture prerequisites: earlier lectures in a chapter are always scheduled first.
+              </div>
+            </div>
+            {items.length > 0 && (
+              <button
+                onClick={handleClear}
+                style={{
+                  borderRadius: 8, padding: '5px 10px', background: '#171020',
+                  border: '1px solid #33263d', color: '#f87171', fontSize: 11,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0
+                }}
+              >
+                <Trash2 size={12} /> Clear
+              </button>
+            )}
           </div>
 
-          <div style={{ display: 'flex', gap: 8, margin: '14px 0 10px' }}>
-            <button
-              onClick={handleResetDemo}
-              style={{
-                borderRadius: 8, padding: '7px 12px', background: '#171020',
-                border: '1px solid #33263d', color: '#c7bdcf', fontSize: 12,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
-              }}
-            >
-              <RotateCcw size={13} /> Load Demo Backlog
-            </button>
-            <button
-              onClick={handleClear}
-              style={{
-                borderRadius: 8, padding: '7px 12px', background: '#171020',
-                border: '1px solid #33263d', color: '#f87171', fontSize: 12,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
-              }}
-            >
-              <Trash2 size={13} /> Clear
-            </button>
-          </div>
-
-          {/* List */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+          {/* Items list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
             {items.length === 0 ? (
               <div style={{
                 padding: 30, textAlign: 'center', color: '#81758c',
                 border: '1px dashed #30243a', borderRadius: 12, fontSize: 13
               }}>
-                No backlog items yet. Click &quot;Load Demo Backlog&quot; or add items above.
+                No backlog items found. Click &quot;Add Lecture&quot; or &quot;Bulk Add Lectures&quot; above to get started.
               </div>
             ) : (
               items.map((item) => (
@@ -323,7 +285,7 @@ export default function BacklogRescuePage() {
                     transition: 'opacity 0.2s'
                   }}
                 >
-                  {/* Checkbox */}
+                  {/* Done checkbox */}
                   <div
                     onClick={() => handleToggle(item.id)}
                     style={{
@@ -362,7 +324,7 @@ export default function BacklogRescuePage() {
                     {item.min} min
                   </span>
 
-                  {/* Delete button */}
+                  {/* Remove button */}
                   <button
                     onClick={() => handleRemove(item.id)}
                     style={{
@@ -379,7 +341,7 @@ export default function BacklogRescuePage() {
           </div>
         </section>
 
-        {/* Right Panel: Rescue Planner */}
+        {/* Right Column: Rescue Planner */}
         <section style={{
           border: '1px solid #2d2337',
           background: 'linear-gradient(145deg, #160d22, #0d0814)',
@@ -388,16 +350,15 @@ export default function BacklogRescuePage() {
           display: 'flex',
           flexDirection: 'column'
         }}>
-          {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
             <div style={{
-              width: 38, height: 38, borderRadius: '50%',
+              width: 36, height: 36, borderRadius: '50%',
               display: 'grid', placeItems: 'center',
               background: 'linear-gradient(135deg, #a15eff, #5420a0)',
               boxShadow: '0 0 20px rgba(141, 75, 224, 0.4)',
-              fontWeight: 900, fontSize: 12, color: '#fff'
+              color: '#fff'
             }}>
-              AI
+              <Sparkles size={18} />
             </div>
             <div>
               <h2 style={{ fontSize: 16, margin: 0, color: '#f8f4ff' }}>Rescue Planner</h2>
@@ -405,7 +366,7 @@ export default function BacklogRescuePage() {
             </div>
           </div>
 
-          {/* Form controls */}
+          {/* Configuration controls */}
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
@@ -453,7 +414,6 @@ export default function BacklogRescuePage() {
             </div>
           </div>
 
-          {/* Checkbox */}
           <label style={{
             display: 'flex', alignItems: 'center', gap: 8,
             fontSize: 12, color: '#aaa0b2', marginBottom: 14, cursor: 'pointer'
@@ -467,7 +427,6 @@ export default function BacklogRescuePage() {
             Keep 30 min/day for regular study & revision
           </label>
 
-          {/* Big action button */}
           <button
             onClick={handleRunRescue}
             style={{
@@ -477,10 +436,10 @@ export default function BacklogRescuePage() {
               justifyContent: 'center', gap: 8, transition: 'background 0.2s'
             }}
           >
-            <span>🆘</span> Rescue My Backlog
+            <LifeBuoy size={17} /> Rescue My Backlog
           </button>
 
-          {/* Plan display */}
+          {/* Plan results display */}
           <div style={{ marginTop: 14 }}>
             {!planResult ? (
               <div style={{
@@ -513,7 +472,6 @@ export default function BacklogRescuePage() {
                         {p.carry > 0 ? ` • ${p.carry} min spare` : ''}
                       </div>
 
-                      {/* Day Items */}
                       <div style={{ marginTop: 8, borderTop: '1px solid #251b2d', paddingTop: 6 }}>
                         {p.items.map((x, idx) => (
                           <div
@@ -538,7 +496,7 @@ export default function BacklogRescuePage() {
                   );
                 })}
 
-                {/* Banner */}
+                {/* Status summary banner */}
                 {planResult.remaining && planResult.remaining.length > 0 ? (
                   <div style={{
                     marginTop: 8, padding: 12, borderRadius: 10,
@@ -560,11 +518,6 @@ export default function BacklogRescuePage() {
               </div>
             )}
           </div>
-
-          <div style={{ marginTop: 16, fontSize: 11, color: '#756b80', lineHeight: 1.5 }}>
-            Demo mode uses a transparent scheduling engine. In production, AI can explain and personalize the plan,
-            while hard constraints (time, lecture order, completion state) remain enforced by code.
-          </div>
         </section>
       </div>
 
@@ -577,7 +530,7 @@ export default function BacklogRescuePage() {
               <button onClick={() => setShowLectureModal(false)} style={modalCloseBtnStyle}>×</button>
             </div>
             <div style={{ fontSize: 11, color: '#8d8196', marginBottom: 14 }}>
-              Create a single lecture inside the student&apos;s backlog.
+              Create a single lecture inside your backlog.
             </div>
 
             <form onSubmit={handleAddLecture}>
