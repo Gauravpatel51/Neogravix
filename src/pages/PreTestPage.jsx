@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { AlertTriangle, Info, CheckCircle2, FileText, Settings, Play, X } from 'lucide-react'
+import { AlertTriangle, Info, CheckCircle2, FileText, Settings, Play, X, Camera, Eye } from 'lucide-react'
+import { CAMERA_PROCTORING_ENABLED } from '../config/proctoring'
 import { useAuth } from '../utils/useAuth'
 
 export default function PreTestPage({ test, setPage }) {
@@ -7,6 +8,7 @@ export default function PreTestPage({ test, setPage }) {
   const [agreed1, setAgreed1] = useState(false)
   const [agreed2, setAgreed2] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [proctoringMode, setProctoringMode] = useState(CAMERA_PROCTORING_ENABLED ? 'camera' : 'none')
 
   // Dynamic calculations based on test data
   const questions = test?.questions || []
@@ -48,6 +50,12 @@ export default function PreTestPage({ test, setPage }) {
     } catch (err) {
       console.error("Failed to enter fullscreen:", err);
     }
+    if (test) {
+      test.proctoringMode = proctoringMode;
+    }
+    try {
+      localStorage.setItem('neogravix_proctoring_mode', proctoringMode);
+    } catch (e) {}
     setPage('exam')
   }
 
@@ -232,6 +240,56 @@ export default function PreTestPage({ test, setPage }) {
                   <div style={{ display: 'flex', gap: 6 }}><CheckCircle2 size={16} color="var(--accent2)"/> Disable VPN</div>
                 </div>
              </div>
+          </div>
+        </div>
+
+        {/* Proctoring Mode Selection */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, marginBottom: 24 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: '#e2e8f0', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Camera size={18} color="var(--accent)" /> Proctoring & Monitoring Mode
+          </h2>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: CAMERA_PROCTORING_ENABLED ? 'repeat(auto-fit, minmax(280px, 1fr))' : '1fr', gap: 14 }}>
+            {CAMERA_PROCTORING_ENABLED && (
+              <div 
+                onClick={() => setProctoringMode('camera')}
+                style={{
+                  border: proctoringMode === 'camera' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                  background: proctoringMode === 'camera' ? 'color-mix(in srgb, var(--accent) 12%, var(--surface2))' : 'var(--surface2)',
+                  borderRadius: 14, padding: '16px 18px', cursor: 'pointer', transition: 'all 0.2s', position: 'relative'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700, color: '#fff', fontSize: 14 }}>
+                    <Camera size={18} color={proctoringMode === 'camera' ? 'var(--accent)' : 'var(--muted)'} />
+                    With camera detection
+                  </div>
+                  <span style={{ fontSize: 10, background: 'color-mix(in srgb, var(--accent) 20%, transparent)', color: '#c7d2fe', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>
+                    Recommended
+                  </span>
+                </div>
+                <p style={{ color: 'var(--muted)', fontSize: 12, lineHeight: 1.5, margin: 0 }}>
+                  Active webcam monitoring continuously checks attentiveness, detecting multiple people, face absence, or looking away.
+                </p>
+              </div>
+            )}
+
+            <div 
+              onClick={() => setProctoringMode('none')}
+              style={{
+                border: proctoringMode === 'none' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                background: proctoringMode === 'none' ? 'color-mix(in srgb, var(--accent) 12%, var(--surface2))' : 'var(--surface2)',
+                borderRadius: 14, padding: '16px 18px', cursor: 'pointer', transition: 'all 0.2s'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700, color: '#fff', fontSize: 14, marginBottom: 6 }}>
+                <Eye size={18} color={proctoringMode === 'none' ? 'var(--accent)' : 'var(--muted)'} />
+                Without camera detection
+              </div>
+              <p style={{ color: 'var(--muted)', fontSize: 12, lineHeight: 1.5, margin: 0 }}>
+                Standard browser monitoring only. Tracks full-screen focus and tab switches without accessing your webcam or microphone.
+              </p>
+            </div>
           </div>
         </div>
 

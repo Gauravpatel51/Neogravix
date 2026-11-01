@@ -75,7 +75,7 @@ export const submitAttempt = async (attemptId, finalStats, questionStates) => {
 }
 
 // Records an anti-cheating violation
-export const recordViolation = async (attemptId, studentId, violationType) => {
+export const recordViolation = async (attemptId, studentId, violationType, snapshotBase64 = null) => {
   // 1. Fetch current attempt to increment count
   const { data: attempt, error: fetchErr } = await supabase
     .from('attempts')
@@ -95,18 +95,26 @@ export const recordViolation = async (attemptId, studentId, violationType) => {
 
   if (updateErr) throw updateErr;
 
-  // 3. Log the specific violation
-  const { error: logErr } = await supabase
-    .from('test_violations')
-    .insert({
+  // 3. Log the specific violation (snapshot fallback: Supabase 402 quota does not block violation)
+  try {
+    const payload = {
       attempt_id: attemptId,
       student_id: studentId,
       violation_type: violationType,
-      browser: navigator.userAgent,
-      device: window.innerWidth <= 768 ? 'Mobile' : 'Desktop'
-    });
-
-  if (logErr) console.error("Failed to log violation detail:", logErr);
+      browser: typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown',
+      device: typeof window !== 'undefined' && window.innerWidth <= 768 ? 'Mobile' : 'Desktop'
+    };
+    if (snapshotBase64) {
+      payload.snapshot = snapshotBase64;
+    }
+    const { error: logErr } = await supabase.from('test_violations').insert(payload);
+    if (logErr && snapshotBase64) {
+      delete payload.snapshot;
+      await supabase.from('test_violations').insert(payload).catch(() => {});
+    }
+  } catch (snapErr) {
+    console.warn("Non-fatal error logging violation details:", snapErr);
+  }
 
   return newCount;
 }

@@ -6,6 +6,9 @@ import NotesPad from '../components/NotesPad'
 import { useAuth } from '../utils/useAuth'
 import { createNotification } from '../api/notifications'
 import { startTestAttempt, saveAttemptState, submitAttempt, recordViolation } from '../api/exam'
+import { CameraProctor } from '../utils/cameraProctor'
+import { CAMERA_PROCTORING_ENABLED } from '../config/proctoring'
+import { Camera, Eye, VideoOff } from 'lucide-react'
 
 import MathText from '../components/MathText'
 
@@ -54,10 +57,19 @@ export default function ExamPage({ test, setPage, setActiveTest }) {
   const [showNotes, setShowNotes] = useState(false)
   const [showNotesPrompt, setShowNotesPrompt] = useState(false)
 
-  // Anti-Cheating State
+  // Anti-Cheating & Proctoring State
   const [violationCount, setViolationCount] = useState(0)
   const [showViolationWarning, setShowViolationWarning] = useState(false)
+  const [violationReason, setViolationReason] = useState('Exited Fullscreen')
   const MAX_VIOLATIONS = 5
+
+  const proctoringMode = test?.proctoringMode || (typeof localStorage !== 'undefined' ? localStorage.getItem('neogravix_proctoring_mode') : 'none') || 'none'
+  const isCameraMode = CAMERA_PROCTORING_ENABLED && proctoringMode === 'camera'
+
+  const videoRef = useRef(null)
+  const proctorRef = useRef(null)
+  const [cameraActive, setCameraActive] = useState(false)
+  const [cameraWarningText, setCameraWarningText] = useState(null)
 
   // Group questions by subject
   let subjectGroups = []
@@ -97,7 +109,9 @@ export default function ExamPage({ test, setPage, setActiveTest }) {
           if (mounted) {
             setAttemptId(attempt.id)
             setQuestionStates(attempt.question_states || {})
-            setViolationCount(attempt.violation_count || 0)
+            const localCount = localStorage.getItem(`attempt_${test.id}_violations`) || localStorage.getItem(`attempt_${attempt.id}_violations`)
+            const restoredCount = Math.max(attempt.violation_count || 0, localCount ? Number(localCount) : 0)
+            setViolationCount(restoredCount)
             const elapsed = Math.floor((Date.now() - new Date(attempt.started_at).getTime()) / 1000)
             setTimeLeft(Math.max(0, totalSeconds - elapsed))
           }
@@ -216,6 +230,66 @@ export default function ExamPage({ test, setPage, setActiveTest }) {
       document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
     }
   }, [violationCount, attemptId, profile?.id, showSubmit]);
+  // Camera Proctoring Lifecycle
+  useEffect(() => {
+    if (!isCameraMode) {
+      // "Without camera" mode: NEVER calls getUserMedia!
+      return;
+    }
+
+    let active = true;
+    const proctor = new CameraProctor({
+      videoElement: videoRef.current,
+      initialViolationCount: violationCount,
+      onStateChange: (state) => {
+        if (!active) return;
+        if (state.status === 'warning') {
+          setCameraWarningText(state.activeWarning);
+        } else {
+          setCameraWarningText(null);
+        }
+      },
+      onViolation: async ({ violationType, violationCount: newCount, autoSubmit, snapshotBase64 }) => {
+        if (!active) return;
+        setViolationCount(newCount);
+        setViolationReason(violationType);
+
+        try {
+          localStorage.setItem(`attempt_${test?.id}_violations`, String(newCount));
+          if (attemptId) localStorage.setItem(`attempt_${attemptId}_violations`, String(newCount));
+        } catch (e) {}
+
+        if (attemptId && profile?.id) {
+          recordViolation(attemptId, profile.id, violationType, snapshotBase64).catch(console.error);
+        }
+
+        if (autoSubmit || newCount >= MAX_VIOLATIONS) {
+          await handleSubmit(true);
+        } else {
+          setShowViolationWarning(true);
+        }
+      },
+      onFallbackToWithoutCamera: ({ reason }) => {
+        if (!active) return;
+        console.warn('[ExamPage] Camera/model unavailable. Falling back to without-camera:', reason);
+        setCameraActive(false);
+      }
+    });
+
+    proctorRef.current = proctor;
+    proctor.start().then(() => {
+      if (active) setCameraActive(true);
+    }).catch(err => {
+      console.warn('[ExamPage] Camera start error:', err);
+      if (active) setCameraActive(false);
+    });
+
+    return () => {
+      active = false;
+      proctor.stop();
+    };
+  }, [isCameraMode, attemptId, profile?.id, handleSubmit]);
+
 
   const requestFullscreenAgain = () => {
     try {
@@ -840,7 +914,7 @@ export default function ExamPage({ test, setPage, setActiveTest }) {
             </h2>
             
             <p style={{ color: '#e2e8f0', fontSize: 16, lineHeight: 1.6, marginBottom: 16, fontWeight: 600 }}>
-              You have exited Fullscreen Mode.
+              {violationReason}
             </p>
 
             <p style={{ color: 'var(--muted)', fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
@@ -860,7 +934,7 @@ export default function ExamPage({ test, setPage, setActiveTest }) {
               onClick={requestFullscreenAgain} 
               style={{ width: '100%', padding: '16px', borderRadius: 12, border: 'none', background: 'var(--red)', color: 'white', fontSize: 16, fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 20px rgba(239, 68, 68, 0.3)' }}
             >
-              Return to Fullscreen
+              Return to Examination
             </button>
           </div>
         </div>
@@ -877,7 +951,7 @@ export default function ExamPage({ test, setPage, setActiveTest }) {
             </h2>
             
             <p style={{ color: '#e2e8f0', fontSize: 16, lineHeight: 1.6, marginBottom: 24, fontWeight: 500 }}>
-              You have exceeded the maximum number of allowed fullscreen violations.
+              You have exceeded the maximum of ${MAX_VIOLATIONS} allowed proctoring violations.
             </p>
 
             <div style={{ background: 'color-mix(in srgb, var(--red) 10%, var(--surface))', border: '1px solid color-mix(in srgb, var(--red) 30%, transparent)', borderRadius: 12, padding: '16px', marginBottom: 24 }}>
@@ -896,6 +970,67 @@ export default function ExamPage({ test, setPage, setActiveTest }) {
               View Analysis
             </button>
           </div>
+        </div>
+      )}
+
+
+      {/* Floating Camera Proctoring PiP Feed */}
+      {isCameraMode && (
+        <div style={{
+          position: 'fixed',
+          bottom: 20,
+          right: 20,
+          width: 154,
+          background: 'var(--surface, #111827)',
+          border: '1px solid var(--border, #1f2d45)',
+          borderRadius: 14,
+          overflow: 'hidden',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.6)',
+          zIndex: 90
+        }}>
+          <div style={{ position: 'relative', width: 154, height: 115, background: '#0b0f19' }}>
+            <video
+              ref={videoRef}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
+              autoPlay
+              playsInline
+              muted
+            />
+            <div style={{
+              position: 'absolute',
+              top: 6,
+              left: 6,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '2px 8px',
+              borderRadius: 99,
+              background: 'rgba(0,0,0,0.75)',
+              fontSize: 10,
+              fontWeight: 700,
+              color: cameraWarningText ? '#fbbf24' : (cameraActive ? '#34d399' : '#94a3b8')
+            }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: cameraWarningText ? '#fbbf24' : (cameraActive ? '#34d399' : '#64748b'),
+                boxShadow: cameraActive ? (cameraWarningText ? '0 0 6px #fbbf24' : '0 0 6px #34d399') : 'none'
+              }} />
+              {cameraWarningText ? 'Alert' : (cameraActive ? 'Proctored' : 'Initializing')}
+            </div>
+          </div>
+          {cameraWarningText && (
+            <div style={{
+              padding: '4px 6px',
+              fontSize: 10,
+              color: '#fbbf24',
+              background: 'rgba(251, 191, 36, 0.15)',
+              textAlign: 'center',
+              fontWeight: 600,
+              borderTop: '1px solid rgba(251, 191, 36, 0.2)'
+            }}>
+              ⚠️ {cameraWarningText}
+            </div>
+          )}
         </div>
       )}
 
