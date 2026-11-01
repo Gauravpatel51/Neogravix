@@ -760,7 +760,9 @@ CRITICAL: Extract EVERY question on this page. Missing even one question is unac
             
             if (expectedScript !== 'Any' && normalized.length > 0) {
                 for (const q of normalized) {
-                    const textToCheck = q.questionText + " " + Object.values(q.options || {}).join(" ");
+                    const textToCheck = expectedScript === 'Devanagari'
+                        ? (q.questionText || '')
+                        : (q.questionText + " " + Object.values(q.options || {}).join(" "));
                     // Simple heuristic: count Hindi characters
                     const hindiMatches = textToCheck.match(/[\u0900-\u097F]/g);
                     const hindiCount = hindiMatches ? hindiMatches.length : 0;

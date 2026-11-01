@@ -14,6 +14,8 @@ export const uploadPdf = async (req, res, next) => {
         const userId = req.user.id;
         const token = req.token;
         const { testName, duration } = req.body;
+        const rawLanguage = req.body.language;
+        const language = ['English', 'Hindi', 'Bilingual'].includes(rawLanguage) ? rawLanguage : 'English';
         const uploadId = uuidv4();
         const jobId = uuidv4();
 
@@ -26,7 +28,7 @@ export const uploadPdf = async (req, res, next) => {
         const finalPath = path.join(uploadDir, `${uploadId}.pdf`);
         fs.renameSync(req.file.path, finalPath);
 
-        logger.info(`Received PDF upload from user ${userId}. Uploading to Supabase Storage...`);
+        logger.info(`Received PDF upload from user ${userId} (language: ${language}). Uploading to Supabase Storage...`);
 
         // Upload to Supabase Storage
         const fileBuffer = fs.readFileSync(finalPath);
@@ -71,7 +73,8 @@ export const uploadPdf = async (req, res, next) => {
             storagePath: `${userId}/${uploadId}.pdf`,
             token,
             testName,
-            duration
+            duration,
+            language
         }, { 
             jobId,
             attempts: 2,

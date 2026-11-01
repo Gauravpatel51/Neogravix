@@ -7,7 +7,7 @@ import { ensureLocalFile } from '../services/storageSync.js';
 
 export const createPdfWorker = (io) => {
     return new Worker('pdf-upload', async job => {
-        const { uploadId, userId, filePath, storagePath, token, testName, duration } = job.data;
+        const { uploadId, userId, filePath, storagePath, token, testName, duration, language = 'English' } = job.data;
         const supabase = supabaseAdmin;
         
         io.to(userId).emit('job-started', { jobId: job.id });
@@ -129,7 +129,8 @@ export const createPdfWorker = (io) => {
                 token,
                 testName,
                 duration,
-                fileHash
+                fileHash,
+                language
             }, {
                 attempts: 2,
                 backoff: { type: 'fixed', delay: 5000 }
